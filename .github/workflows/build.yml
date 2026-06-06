@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -30,9 +33,10 @@ jobs:
           --name "용접오매칭검사기"
           app.py
 
-      - name: EXE 업로드 (아티팩트)
-        uses: actions/upload-artifact@v4
+      - name: Release 생성 및 EXE 업로드
+        uses: softprops/action-gh-release@v2
         with:
-          name: 용접오매칭검사기
-          path: dist/용접오매칭검사기.exe
-          retention-days: 30
+          tag_name: latest
+          name: 최신 버전
+          files: dist/용접오매칭검사기.exe
+          prerelease: false
