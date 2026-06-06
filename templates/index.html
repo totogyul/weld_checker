@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>용접 오매칭 검사기</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.10);
+      padding: 48px 40px 40px;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: .9rem;
+      color: #666;
+      margin-bottom: 36px;
+    }
+
+    .upload-area {
+      border: 2px dashed #c5cae9;
+      border-radius: 12px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .upload-area:hover, .upload-area.drag-over {
+      border-color: #3f51b5;
+      background: #f3f4ff;
+    }
+
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+
+    .upload-label {
+      font-size: .85rem;
+      font-weight: 600;
+      color: #3f51b5;
+      margin-bottom: 4px;
+    }
+
+    .upload-hint {
+      font-size: .78rem;
+      color: #999;
+    }
+
+    .file-name {
+      font-size: .82rem;
+      color: #333;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #3f51b5;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background .2s;
+    }
+
+    .btn:hover:not(:disabled) { background: #303f9f; }
+    .btn:disabled { background: #9fa8da; cursor: not-allowed; }
+
+    .status {
+      margin-top: 18px;
+      font-size: .88rem;
+      text-align: center;
+      min-height: 22px;
+    }
+
+    .status.error { color: #c62828; }
+    .status.success { color: #2e7d32; }
+    .status.loading { color: #555; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #ccc;
+      border-top-color: #3f51b5;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>용접 오매칭 검사기</h1>
+    <p class="subtitle">통합문서 PDF와 도면 PDF를 올리면 오매칭 항목을 Excel로 내려받을 수 있습니다.</p>
+
+    <form id="form">
+      <div class="upload-area" id="drop-table">
+        <input type="file" name="table_pdf" accept=".pdf" id="input-table" />
+        <div class="upload-icon">📋</div>
+        <div class="upload-label">통합문서 PDF</div>
+        <div class="upload-hint">클릭하거나 파일을 여기에 끌어다 놓으세요</div>
+        <div class="file-name" id="name-table"></div>
+      </div>
+
+      <div class="upload-area" id="drop-diagram">
+        <input type="file" name="diagram_pdf" accept=".pdf" id="input-diagram" />
+        <div class="upload-icon">📐</div>
+        <div class="upload-label">도면 PDF</div>
+        <div class="upload-hint">클릭하거나 파일을 여기에 끌어다 놓으세요</div>
+        <div class="file-name" id="name-diagram"></div>
+      </div>
+
+      <button type="submit" class="btn" id="btn" disabled>검사 후 Excel 다운로드</button>
+    </form>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const inputTable   = document.getElementById('input-table');
+    const inputDiagram = document.getElementById('input-diagram');
+    const nameTable    = document.getElementById('name-table');
+    const nameDiagram  = document.getElementById('name-diagram');
+    const btn          = document.getElementById('btn');
+    const status       = document.getElementById('status');
+
+    function updateBtn() {
+      btn.disabled = !(inputTable.files.length && inputDiagram.files.length);
+    }
+
+    inputTable.addEventListener('change', () => {
+      nameTable.textContent = inputTable.files[0]?.name || '';
+      updateBtn();
+    });
+
+    inputDiagram.addEventListener('change', () => {
+      nameDiagram.textContent = inputDiagram.files[0]?.name || '';
+      updateBtn();
+    });
+
+    // 드래그 앤 드롭
+    ['drop-table', 'drop-diagram'].forEach(id => {
+      const area  = document.getElementById(id);
+      const input = area.querySelector('input[type="file"]');
+      const nameEl = id === 'drop-table' ? nameTable : nameDiagram;
+
+      area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+      area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+      area.addEventListener('drop', e => {
+        e.preventDefault();
+        area.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type === 'application/pdf') {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          input.files = dt.files;
+          nameEl.textContent = file.name;
+          updateBtn();
+        }
+      });
+    });
+
+    document.getElementById('form').addEventListener('submit', async e => {
+      e.preventDefault();
+      btn.disabled = true;
+      status.className = 'status loading';
+      status.innerHTML = '<span class="spinner"></span>검사 중입니다...';
+
+      const formData = new FormData(e.target);
+
+      try {
+        const res = await fetch('/check', { method: 'POST', body: formData });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || '서버 오류');
+        }
+
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        a.download = '오매칭_검사결과.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        status.className = 'status success';
+        status.textContent = '완료! Excel 파일이 다운로드됩니다.';
+      } catch (err) {
+        status.className = 'status error';
+        status.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
